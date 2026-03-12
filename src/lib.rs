@@ -20,7 +20,7 @@ pub enum Error {
     #[snafu(display("The variable {key} exists, but"))]
     ParseError {
         key: &'static str,
-        source: Box<dyn std::error::Error>,
+        source: Box<dyn std::error::Error + Send + Sync + 'static>,
     },
 
     #[snafu(display("The variable {key} does not exist"))]

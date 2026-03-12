@@ -13,6 +13,8 @@ pub trait EnvContainer {
     fn raw_merge(&mut self, diff: impl Diff);
 }
 
+// Buf
+
 pub struct EnvBuf(HashMap<String, OsString>);
 
 impl EnvBuf {

@@ -3,7 +3,7 @@ use std::ffi::OsString;
 use snafu::{AsErrorSource, Snafu};
 
 pub trait EnvironmentParse<Repr>: Sized {
-    type Error: snafu::Error + 'static;
+    type Error: snafu::Error + Send + Sync + 'static;
 
     fn env_serialize(self) -> Repr;
     fn env_deserialize(raw: Repr) -> Result<Self, Self::Error>;
