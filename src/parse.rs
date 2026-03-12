@@ -1,65 +1,37 @@
-use std::{error::Error, ffi::OsString, path::PathBuf};
+use std::ffi::OsString;
 
-use snafu::Snafu;
-
-pub type Result<T, E = EnvironmentParseError> = std::result::Result<T, E>;
-
-#[derive(Debug, Snafu)]
-pub enum EnvironmentParseError {
-    #[snafu(display("it contains non-UTF8 encoding"))]
-    InvalidEncoding,
-
-    #[snafu(display("the contents of it are invalid"))]
-    #[snafu(context(false))]
-    InvalidContent { source: Box<dyn Error> },
-}
-
-pub struct ParseErrorHatch<T>(pub T);
-
-impl<T> From<ParseErrorHatch<T>> for EnvironmentParseError
-where
-    T: snafu::Error + 'static,
-{
-    fn from(value: ParseErrorHatch<T>) -> Self {
-        Self::InvalidContent {
-            source: value.0.into(),
-        }
-    }
-}
+use snafu::{AsErrorSource, Snafu};
 
 pub trait EnvironmentParse<Repr>: Sized {
+    type Error: snafu::Error + 'static;
+
     fn env_serialize(self) -> Repr;
-    fn env_deserialize(raw: Repr) -> Result<Self>;
+    fn env_deserialize(raw: Repr) -> Result<Self, Self::Error>;
+}
+
+// NOTE: the display messages make sense when paired with crate::Error
+#[derive(Debug, Snafu)]
+
+pub enum StringParseError<E: AsErrorSource> {
+    #[snafu(display("it contains non-UTF8 encoding"))]
+    InvalidEncoding,
+    #[snafu(context(false))]
+    #[snafu(display("the contents of it are invalid"))]
+    InvalidContent { source: E },
 }
 
 impl<T: EnvironmentParse<String>> EnvironmentParse<OsString> for T {
+    type Error = StringParseError<<Self as EnvironmentParse<String>>::Error>;
+
     fn env_serialize(self) -> OsString {
         self.env_serialize().into()
     }
 
-    fn env_deserialize(raw: OsString) -> Result<Self> {
+    fn env_deserialize(raw: OsString) -> Result<Self, Self::Error> {
         let value = raw
             .into_string()
-            .map_err(|_| EnvironmentParseError::InvalidEncoding)?;
+            .map_err(|_| StringParseError::InvalidEncoding)?;
 
-        Self::env_deserialize(value)
+        Ok(Self::env_deserialize(value)?)
     }
 }
-
-macro_rules! env_parse_raw {
-    ($t:ident => $ty:ty) => {
-        impl EnvironmentParse<$ty> for $t {
-            fn env_serialize(self) -> $ty {
-                self.into()
-            }
-
-            fn env_deserialize(raw: $ty) -> Result<Self> {
-                Ok(Self::from(raw))
-            }
-        }
-    };
-}
-
-env_parse_raw!(PathBuf => OsString);
-env_parse_raw!(OsString => OsString);
-env_parse_raw!(String => String);

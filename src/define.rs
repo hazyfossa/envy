@@ -3,15 +3,13 @@ macro_rules! define_env {
     ($vis:vis $name:ident ($repr:ty) = auto parse $key:expr) => {
         impl $crate::parse::EnvironmentParse<String> for $name
         {
+            type Error = <$repr as std::str::FromStr>::Err;
             fn env_serialize(self) -> String {
                 self.0.to_string()
             }
 
-            fn env_deserialize(raw: String) -> $crate::parse::Result<Self> {
-                let value = raw.parse().map_err(|e|
-                    $crate::parse::ParseErrorHatch(e)
-                )?;
-
+            fn env_deserialize(raw: String) -> Result<Self, Self::Error> {
+                let value = raw.parse()?;
                 Ok(Self(value))
             }
         }
@@ -19,12 +17,14 @@ macro_rules! define_env {
         $crate::define_env!($vis $name ($repr) = $key);
     };
 
-    ($vis:vis $name:ident ($repr:ty) = parse $key:expr) => {
+    ($vis:vis $name:ident ($repr:ty) = parse raw $key:expr) => {
         impl $crate::parse::EnvironmentParse<std::ffi::OsString> for $name {
-            fn env_serialize(self) -> std::ffi::OsString { self.0.env_serialize() }
+            type Error = <$repr as TryParse>::Error;
+
+            fn env_serialize(self) -> std::ffi::OsString { self.0.into() }
 
             fn env_deserialize(raw: std::ffi::OsString) -> $crate::parse::Result<Self> {
-                Ok(Self(<$repr>::env_deserialize(raw)?))
+                Ok(Self(<$repr>::try_from(raw)?))
             }
         }
 

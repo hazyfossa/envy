@@ -7,11 +7,7 @@ use std::ffi::OsString;
 
 use snafu::prelude::*;
 
-use crate::{
-    container::EnvContainer,
-    diff::Diff,
-    parse::{EnvironmentParse, EnvironmentParseError},
-};
+use crate::{container::EnvContainer, diff::Diff, parse::EnvironmentParse};
 
 // TODO: zerocopy views
 
@@ -24,8 +20,9 @@ pub enum Error {
     #[snafu(display("The variable {key} exists, but"))]
     ParseError {
         key: &'static str,
-        source: EnvironmentParseError,
+        source: Box<dyn std::error::Error>,
     },
+
     #[snafu(display("The variable {key} does not exist"))]
     NoneError { key: &'static str },
 }
@@ -35,7 +32,9 @@ pub trait Env: EnvContainer + Diff {
         let raw = self.raw_get(T::KEY).context(NoneSnafu { key: T::KEY })?;
 
         // TODO: zerocopy
-        T::env_deserialize(raw.clone()).context(ParseSnafu { key: T::KEY })
+        T::env_deserialize(raw.clone())
+            .map_err(|e| e.into())
+            .context(ParseSnafu { key: T::KEY })
     }
 
     fn set<T: Diff>(&mut self, e: T) {
