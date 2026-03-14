@@ -43,24 +43,3 @@ pub trait Env: EnvContainer + Diff {
 }
 
 impl<T> Env for T where T: EnvContainer + Diff {}
-
-// misc
-
-pub trait EnvVecExt: Env + Sized {
-    fn to_vec(self) -> Vec<OsString> {
-        self.to_env_diff()
-            .into_iter()
-            .map(|pair| {
-                let mut merged = OsString::new();
-
-                merged.push(pair.0);
-                merged.push("=");
-                merged.push(pair.1);
-
-                merged
-            })
-            .collect()
-    }
-}
-
-impl<T: Env> EnvVecExt for T {}
