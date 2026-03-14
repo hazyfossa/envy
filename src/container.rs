@@ -8,6 +8,7 @@ use crate::diff::Diff;
 
 type EnvEntry = (String, OsString);
 
+// TODO: split in two to allow for &-impls, non-view OsEnv
 pub trait EnvContainer {
     fn raw_get(&self, key: &str) -> Option<OsString>;
     fn raw_merge(&mut self, diff: impl Diff);
@@ -24,6 +25,10 @@ impl EnvBuf {
 
     pub fn from_values(values: impl IntoIterator<Item = EnvEntry>) -> Self {
         Self(values.into_iter().collect())
+    }
+
+    pub fn into_hashmap(self) -> HashMap<String, OsString> {
+        self.0
     }
 }
 
@@ -46,11 +51,11 @@ impl Diff for EnvBuf {
 
 // System
 
-pub struct EnvOs {
+pub struct OsEnv {
     append_buf: EnvBuf,
 }
 
-impl EnvOs {
+impl OsEnv {
     /// This creates a new view os the system environment
     ///
     /// Keep in mind that setting a variable is scoped per view
@@ -75,9 +80,21 @@ impl EnvOs {
             append_buf: EnvBuf::new(),
         }
     }
+
+    // This dumps a full copy of env, preserving changes from this local view.
+    // For example, this might be useful when sharing env over a network.
+    // When setting env for a subprocess, use to_env_diff instead.
+    pub fn dump(self) -> EnvBuf {
+        // NOTE: this ignores variables with non-utf8 keys
+        let all = sys::vars_os().filter_map(|(key, value)| Some((key.into_string().ok()?, value)));
+
+        let mut buf = self.append_buf;
+        buf.0.extend(all);
+        buf
+    }
 }
 
-impl EnvContainer for EnvOs {
+impl EnvContainer for OsEnv {
     fn raw_get(&self, key: &str) -> Option<OsString> {
         self.append_buf.raw_get(key).or(sys::var_os(key))
     }
@@ -87,13 +104,8 @@ impl EnvContainer for EnvOs {
     }
 }
 
-impl Diff for EnvOs {
+impl Diff for OsEnv {
     fn to_env_diff(self) -> impl IntoIterator<Item = (String, OsString)> {
-        // TODO: verify that new overrides correctly
-        // TODO: consider optimizing this for spawn (do not copy what kernel passes anyway)
-        // NOTE: this ignores variables with non-utf8 keys
-        sys::vars_os()
-            .filter_map(|(key, value)| Some((key.into_string().ok()?, value)))
-            .chain(self.append_buf.to_env_diff())
+        self.append_buf.to_env_diff()
     }
 }
