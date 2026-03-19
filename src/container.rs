@@ -16,6 +16,7 @@ pub trait EnvContainer {
 
 // Buf
 
+/// EnvBuf is a thin wrapper around a HashMap
 pub struct EnvBuf(HashMap<String, OsString>);
 
 impl EnvBuf {
@@ -58,6 +59,8 @@ pub struct OsEnv {
 impl OsEnv {
     /// This creates a new view os the system environment
     ///
+    /// It is cheap to call, no allocation is performed until a variable is modified
+    ///
     /// Keep in mind that setting a variable is scoped per view
     /// For example, in this case:
     /// ```
@@ -81,7 +84,9 @@ impl OsEnv {
         }
     }
 
-    // This dumps a full copy of env, preserving changes from this local view.
+    // This dumps a full copy of env, including both changes from this local view
+    // and pre-existing variables.
+    //
     // For example, this might be useful when sharing env over a network.
     // When setting env for a subprocess, use to_env_diff instead.
     pub fn dump(self) -> EnvBuf {
