@@ -8,12 +8,12 @@ define_env!(pub Vt(u8) = "XDG_VTNR");
 // By default, this will generate code to parse this variable to a proper type using FromStr and ToString traits.
 // This is usually what you'd to as part of boilerplate.
 
-// If you don't want your variable to be constrained to unicode, you can define it as `raw`.
+// If you don't want your variable to be constrained to unicode, you can define it as `#raw`.
 // Note that this typically restricts your choice of types to OsString and PathBuf.
-define_env!(pub XAuthority(std::path::PathBuf) = raw "XAUTHORITY");
+define_env!(pub XAuthority(std::path::PathBuf) = #raw "XAUTHORITY");
 
-// If you need custom parsing for a variable, define it as `custom`:
-define_env!(pub ListOfValues(Vec<u32>) = custom "VARIABLE");
+// If you need custom parsing for a variable, define it as `#custom`:
+define_env!(pub ListOfValues(Vec<u32>) = #custom "VARIABLE");
 
 impl EnvironmentParse<String> for ListOfValues {
     type Error = std::num::ParseIntError;
