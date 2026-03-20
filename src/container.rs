@@ -59,9 +59,9 @@ pub struct OsEnv {
 impl OsEnv {
     /// This creates a new view os the system environment
     ///
-    /// It is cheap to call, no allocation is performed until a variable is modified
+    /// It is cheap to call, no allocation is performed until a variable is modified.
     ///
-    /// Keep in mind that setting a variable is scoped per view
+    /// Keep in mind that setting a variable is scoped per view.
     /// For example, in this case:
     /// ```
     /// let a = EnvOs::new_view();
@@ -84,7 +84,7 @@ impl OsEnv {
         }
     }
 
-    // This dumps a full copy of env, including both changes from this local view
+    // Get a full copy of env, including both changes from this local view
     // and pre-existing variables.
     //
     // For example, this might be useful when sharing env over a network.
@@ -96,6 +96,17 @@ impl OsEnv {
         let mut buf = self.append_buf;
         buf.0.extend(all);
         buf
+    }
+
+    // Make changes from this view visible across the program.
+    //
+    // See `std::env::set_var` for why this is unsafe.
+    pub unsafe fn merge_into_global(self) {
+        for (key, value) in self.to_env_diff() {
+            unsafe {
+                sys::set_var(key, value);
+            }
+        }
     }
 }
 
