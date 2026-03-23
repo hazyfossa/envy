@@ -5,6 +5,7 @@ use envy::{define_env, parse::EnvironmentParse};
 define_env!(XAuthority(std::path::PathBuf) = #raw "XAUTHORITY");
 
 // You can use attributes and visibility syntax as usual
+// Debug, Clone and Deref<Target={inner}> are derived by default
 define_env!(
     #[derive(PartialEq, Eq)]
     pub Count(u8) = "MY_COUNT"
@@ -39,5 +40,16 @@ impl EnvironmentParse<String> for ListOfValues {
 
 // Also, for now, returning references or zero-copy values (i.e Cow)
 // from parsers is not supported. This might change in the future
+
+// ---
+
+// If you want to use a pre-existing type, it is possible:
+
+// define_env!(MyEnvNewtype = "VARIABLE");
+
+// parse modifiers (#...) will defer to correct traits on your types
+
+// Note, however, that it's usually a good practice to keep your env-types
+// separate from logic-types. In most cases, you should use #custom instead
 
 fn main() {}

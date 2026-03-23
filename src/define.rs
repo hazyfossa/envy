@@ -1,18 +1,40 @@
 #[macro_export]
 macro_rules! define_env {
+    // newtype
     (
         $(#[$($attributes:tt)*])?
-        $vis:vis $name:ident ($repr:ty) = $(#$parse:tt)? $key:literal
+        $vis:vis $name:ident ($repr:ty) = $(#$parse_modifier:tt)? $key:literal
     ) => {
-        $(#[$($attributes)*])?
-        #[derive(Debug, Clone)]
-        $vis struct $name($repr);
+        $crate::define_env!(@newtype
+            $(#[$($attributes)*])?
+            $vis $name($repr)
+        );
 
-        $crate::define_env!(@parse $($parse)? $name($repr));
+        $crate::define_env!(@parse $($parse_modifier)? $name($repr));
 
         impl $crate::EnvVar for $name {
             const KEY: &str = $key;
         }
+    };
+
+    // existing
+    (
+        $name:ident = $(#$parse_modifier:tt)? $key:literal
+    ) => {
+        $crate::define_env!(@parse $($parse_modifier)? $name($name));
+
+        impl $crate::EnvVar for $name {
+            const KEY: &str = $key;
+        }
+    };
+
+    (@newtype
+        $(#[$($attributes:tt)*])?
+        $vis:vis $name:ident ($repr:ty)
+    ) => {
+        $(#[$($attributes)*])?
+        #[derive(Debug, Clone)]
+        $vis struct $name($repr);
 
         impl std::ops::Deref for $name {
             type Target = $repr;
@@ -27,7 +49,7 @@ macro_rules! define_env {
             type Error = <$repr as std::str::FromStr>::Err;
 
             fn env_serialize(self) -> String {
-                self.0.to_string()
+                self.to_string()
             }
 
             fn env_deserialize(raw: String) -> Result<Self, Self::Error> {
