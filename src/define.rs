@@ -36,6 +36,12 @@ macro_rules! define_env {
         #[derive(Debug, Clone)]
         $vis struct $name($repr);
 
+        impl From<$repr> for $name {
+            fn from(value: $repr) -> Self {
+                Self(value)
+            }
+        }
+
         impl std::ops::Deref for $name {
             type Target = $repr;
             fn deref(&self) -> &Self::Target {
@@ -53,8 +59,8 @@ macro_rules! define_env {
             }
 
             fn env_deserialize(raw: String) -> Result<Self, Self::Error> {
-                let value = raw.parse()?;
-                Ok(Self(value))
+                let value = raw.parse::<$repr>()?;
+                Ok(Self::from(value))
             }
         }
     };

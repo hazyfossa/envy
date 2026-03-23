@@ -44,8 +44,25 @@ impl EnvironmentParse<String> for ListOfValues {
 // ---
 
 // If you want to use a pre-existing type, it is possible:
+enum Example {
+    A,
+    B,
+}
 
-// define_env!(MyEnvNewtype = "VARIABLE");
+impl std::str::FromStr for Example {
+    type Err = std::convert::Infallible;
+    fn from_str(_s: &str) -> Result<Self, Self::Err> {
+        todo!()
+    }
+}
+
+impl ToString for Example {
+    fn to_string(&self) -> String {
+        todo!()
+    }
+}
+
+define_env!(Example = "EXAMPLE");
 
 // parse modifiers (#...) will defer to correct traits on your types
 
