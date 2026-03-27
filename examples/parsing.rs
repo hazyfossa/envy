@@ -1,3 +1,4 @@
+#![allow(unused)]
 use envy::{define_env, parse::EnvironmentParse};
 
 // If you don't want your variable to be constrained to unicode, you can define it as `#raw`.
@@ -44,10 +45,14 @@ impl EnvironmentParse<String> for ListOfValues {
 // ---
 
 // If you want to use a pre-existing type, it is possible:
+
+define_env!(Example = "EXAMPLE");
 enum Example {
     A,
     B,
 }
+
+// parse modifiers (#...) will defer to correct traits on your types
 
 impl std::str::FromStr for Example {
     type Err = std::convert::Infallible;
@@ -61,10 +66,6 @@ impl ToString for Example {
         todo!()
     }
 }
-
-define_env!(Example = "EXAMPLE");
-
-// parse modifiers (#...) will defer to correct traits on your types
 
 // Note, however, that it's usually a good practice to keep your env-types
 // separate from logic-types. In most cases, you should use #custom instead

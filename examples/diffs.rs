@@ -1,6 +1,7 @@
 #![allow(unused)]
 use envy::container::EnvBuf;
-use envy::{Env, container::OsEnv, define_env, diff::Diff};
+use envy::{Unset, diff};
+use envy::{UseEnvRead, UseEnvWrite, container::OsEnv, define_env, diff::Diff};
 
 use std::collections::HashMap;
 use std::{ffi::OsString, path::PathBuf};
@@ -23,7 +24,7 @@ fn diffs() -> Result<(), envy::Error> {
 
     // Diffs can (expectedly) be passed to commands
     let mut command = std::process::Command::new("/bin/bash");
-    command.envs(session.to_env_diff());
+    command.apply(session);
 
     Ok(())
 }
@@ -62,6 +63,16 @@ fn containers() {
     // See function docs for more details
     let mut env = OsEnv::new_view();
     env.set(Shell("/bin/sh".into()));
+}
+
+fn unset() {
+    let mut buf = EnvBuf::new();
+
+    // To unset a variable, use pull()
+    buf.pull::<Shell>();
+
+    // you can also manually unset variables in a diff
+    buf.apply(("some=other", diff::unset::<Shell>()));
 }
 
 fn main() {}

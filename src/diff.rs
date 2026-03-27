@@ -1,27 +1,53 @@
-use std::ffi::OsString;
+use std::marker::PhantomData;
 
 use crate::EnvVar;
 
+pub use entry::Entry;
+pub mod entry {
+    use std::ffi::OsString;
+
+    pub type Entry = (String, Option<OsString>);
+
+    pub fn set(key: String, value: OsString) -> Entry {
+        (key, Some(value))
+    }
+
+    pub fn unset(key: String) -> Entry {
+        (key, None)
+    }
+}
+
 pub trait Diff {
-    fn to_env_diff(self) -> impl IntoIterator<Item = (String, OsString)>;
+    fn to_env_diff(self) -> impl IntoIterator<Item = Entry>;
 }
 
 impl<T: EnvVar> Diff for T {
-    fn to_env_diff(self) -> impl IntoIterator<Item = (String, OsString)> {
-        [(Self::KEY.to_string(), self.env_serialize())]
+    fn to_env_diff(self) -> impl IntoIterator<Item = Entry> {
+        [entry::set(Self::KEY.to_string(), self.env_serialize())]
+    }
+}
+
+pub struct Unset<T>(pub PhantomData<T>);
+pub fn unset<T>() -> Unset<T> {
+    Unset(PhantomData)
+}
+
+impl<T: EnvVar> Diff for Unset<T> {
+    fn to_env_diff(self) -> impl IntoIterator<Item = Entry> {
+        [entry::unset(T::KEY.to_string())]
     }
 }
 
 // NOTE: this is for untyped variables
 // you would usually prefer typed ones instead
 impl Diff for &'static str {
-    fn to_env_diff(self) -> impl IntoIterator<Item = (String, OsString)> {
+    fn to_env_diff(self) -> impl IntoIterator<Item = Entry> {
         let parts: Vec<&str> = self.split("=").collect();
         if parts.len() != 2 {
             panic!("Invalid environment update: {self}");
         }
 
-        [(parts[0].into(), parts[1].into())]
+        [entry::set(parts[0].into(), parts[1].into())]
     }
 }
 
@@ -34,10 +60,20 @@ mod env_container_variadics {
             #[allow(non_camel_case_types)]
             impl<$($name: Diff),+> Diff for ($($name,)+)
             {
-                fn to_env_diff(self) -> impl IntoIterator<Item = (String, OsString)> {
+                fn to_env_diff(self) -> impl IntoIterator<Item = Entry> {
                     let iter = std::iter::empty();
                     let ($($name,)+) = self;
                     $(let iter = iter.chain($name.to_env_diff());)+
+                    iter
+                }
+            }
+
+            #[allow(non_camel_case_types)]
+            impl<$($name: EnvVar),+> Diff for Unset<($($name,)+)>
+            {
+                fn to_env_diff(self) -> impl IntoIterator<Item = Entry> {
+                    let iter = std::iter::empty();
+                    $(let iter = iter.chain([entry::unset($name::KEY.to_string())]);)+
                     iter
                 }
             }
@@ -59,21 +95,21 @@ mod env_container_variadics {
 
 // misc
 
-pub trait EnvVecExt: Diff + Sized {
-    fn to_vec(self) -> Vec<OsString> {
-        self.to_env_diff()
-            .into_iter()
-            .map(|pair| {
-                let mut merged = OsString::new();
+// pub trait EnvVecExt: Diff + Sized {
+//     fn to_vec(self) -> Vec<OsString> {
+//         self.to_env_diff()
+//             .into_iter()
+//             .map(|pair| {
+//                 let mut merged = OsString::new();
 
-                merged.push(pair.0);
-                merged.push("=");
-                merged.push(pair.1);
+//                 merged.push(pair.0);
+//                 merged.push("=");
+//                 merged.push(pair.1);
 
-                merged
-            })
-            .collect()
-    }
-}
+//                 merged
+//             })
+//             .collect()
+//     }
+// }
 
-impl<T: Diff> EnvVecExt for T {}
+// impl<T: Diff> EnvVecExt for T {}
