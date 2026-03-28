@@ -6,12 +6,11 @@ use std::{collections::HashMap, env as sys, ffi::OsString};
 
 use crate::diff::{Diff, Entry};
 
-// TODO: split in two to allow for &-impls, non-view OsEnv
-pub trait EnvRead {
+pub trait EnvContainer {
     fn raw_get(&self, key: &str) -> Option<OsString>;
 }
 
-pub trait EnvWrite {
+pub trait MutableEnvContainer {
     fn raw_merge(&mut self, diff: impl Diff);
 }
 
@@ -37,14 +36,14 @@ impl EnvBuf {
     }
 }
 
-impl EnvRead for EnvBuf {
+impl EnvContainer for EnvBuf {
     fn raw_get(&self, key: &str) -> Option<OsString> {
         // TODO-ref: zerocopy
         Some(self.0.get(key)?.as_ref()?.clone())
     }
 }
 
-impl EnvWrite for EnvBuf {
+impl MutableEnvContainer for EnvBuf {
     fn raw_merge(&mut self, diff: impl Diff) {
         self.0.extend(diff.to_env_diff());
     }
@@ -119,13 +118,13 @@ impl OsEnv {
     }
 }
 
-impl EnvRead for OsEnv {
+impl EnvContainer for OsEnv {
     fn raw_get(&self, key: &str) -> Option<OsString> {
         self.append_buf.raw_get(key).or(sys::var_os(key))
     }
 }
 
-impl EnvWrite for OsEnv {
+impl MutableEnvContainer for OsEnv {
     fn raw_merge(&mut self, diff: impl Diff) {
         self.append_buf.raw_merge(diff);
     }
@@ -139,7 +138,7 @@ impl Diff for OsEnv {
 
 // command
 
-impl EnvWrite for std::process::Command {
+impl MutableEnvContainer for std::process::Command {
     fn raw_merge(&mut self, diff: impl Diff) {
         for (k, v) in diff.to_env_diff() {
             match v {

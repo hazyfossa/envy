@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::EnvVar;
+use crate::EnvVariable;
 
 pub use entry::Entry;
 pub mod entry {
@@ -21,18 +21,19 @@ pub trait Diff {
     fn to_env_diff(self) -> impl IntoIterator<Item = Entry>;
 }
 
-impl<T: EnvVar> Diff for T {
+impl<T: EnvVariable> Diff for T {
     fn to_env_diff(self) -> impl IntoIterator<Item = Entry> {
         [entry::set(Self::KEY.to_string(), self.env_serialize())]
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Unset<T>(pub PhantomData<T>);
 pub fn unset<T>() -> Unset<T> {
     Unset(PhantomData)
 }
 
-impl<T: EnvVar> Diff for Unset<T> {
+impl<T: EnvVariable> Diff for Unset<T> {
     fn to_env_diff(self) -> impl IntoIterator<Item = Entry> {
         [entry::unset(T::KEY.to_string())]
     }
@@ -64,16 +65,6 @@ mod env_container_variadics {
                     let iter = std::iter::empty();
                     let ($($name,)+) = self;
                     $(let iter = iter.chain($name.to_env_diff());)+
-                    iter
-                }
-            }
-
-            #[allow(non_camel_case_types)]
-            impl<$($name: EnvVar),+> Diff for Unset<($($name,)+)>
-            {
-                fn to_env_diff(self) -> impl IntoIterator<Item = Entry> {
-                    let iter = std::iter::empty();
-                    $(let iter = iter.chain([entry::unset($name::KEY.to_string())]);)+
                     iter
                 }
             }

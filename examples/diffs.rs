@@ -1,7 +1,7 @@
 #![allow(unused)]
 use envy::container::EnvBuf;
+use envy::{Get, Set, container::OsEnv, define_env, diff::Diff};
 use envy::{Unset, diff};
-use envy::{UseEnvRead, UseEnvWrite, container::OsEnv, define_env, diff::Diff};
 
 use std::collections::HashMap;
 use std::{ffi::OsString, path::PathBuf};

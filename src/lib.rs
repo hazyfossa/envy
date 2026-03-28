@@ -7,16 +7,17 @@ use snafu::prelude::*;
 use std::ffi::OsString;
 
 use crate::{
-    container::{EnvRead, EnvWrite},
+    container::{EnvContainer, MutableEnvContainer},
     diff::{Diff, unset},
     parse::EnvironmentParse,
 };
 
+pub use container::OsEnv;
 pub use diff::Unset;
 
 // TODO: zerocopy views
 
-pub trait EnvVar: EnvironmentParse<OsString> {
+pub trait EnvVariable: EnvironmentParse<OsString> {
     const KEY: &str;
 }
 
@@ -32,11 +33,8 @@ pub enum Error {
     NoneError { key: &'static str },
 }
 
-// TODO: proper readonly containers
-// TODO: better trait names, explicit Ext traits for disambiguation?
-// or simply prefix everything with env...
-pub trait UseEnvRead: EnvRead {
-    fn get<T: EnvVar>(&self) -> Result<T, Error> {
+pub trait Get: EnvContainer {
+    fn get<T: EnvVariable>(&self) -> Result<T, Error> {
         let raw = self.raw_get(T::KEY).context(NoneSnafu { key: T::KEY })?;
 
         // TODO: zerocopy
@@ -46,8 +44,8 @@ pub trait UseEnvRead: EnvRead {
     }
 }
 
-pub trait UseEnvWrite: EnvWrite {
-    fn set<T: EnvVar>(&mut self, e: T) {
+pub trait Set: MutableEnvContainer {
+    fn set<T: EnvVariable>(&mut self, e: T) {
         // Set is an alias for merge with length one
         self.raw_merge(e);
     }
@@ -56,9 +54,9 @@ pub trait UseEnvWrite: EnvWrite {
         self.raw_merge(e);
     }
 
-    fn pull<T: EnvVar>(&mut self) -> Result<T, Error>
+    fn pull<T: EnvVariable>(&mut self) -> Result<T, Error>
     where
-        Self: UseEnvRead,
+        Self: Get,
     {
         let ret = self.get::<T>();
         self.apply(unset::<T>());
@@ -66,5 +64,5 @@ pub trait UseEnvWrite: EnvWrite {
     }
 }
 
-impl<T> UseEnvRead for T where T: EnvRead {}
-impl<T> UseEnvWrite for T where T: EnvWrite {}
+impl<T> Get for T where T: EnvContainer {}
+impl<T> Set for T where T: MutableEnvContainer {}
