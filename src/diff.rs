@@ -27,6 +27,15 @@ impl<T: EnvVariable> Diff for T {
     }
 }
 
+impl<T: Diff> Diff for Option<T> {
+    fn to_env_diff(self) -> impl IntoIterator<Item = Entry> {
+        match self {
+            Some(diff) => diff.to_env_diff().into_iter().collect::<Vec<_>>(),
+            None => Vec::new(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Unset<T>(pub PhantomData<T>);
 pub fn unset<T>() -> Unset<T> {
@@ -83,24 +92,3 @@ mod env_container_variadics {
     var_impl!  { a b c d e f g h i j k }
     var_impl! { a b c d e f g h i j k l }
 }
-
-// misc
-
-// pub trait EnvVecExt: Diff + Sized {
-//     fn to_vec(self) -> Vec<OsString> {
-//         self.to_env_diff()
-//             .into_iter()
-//             .map(|pair| {
-//                 let mut merged = OsString::new();
-
-//                 merged.push(pair.0);
-//                 merged.push("=");
-//                 merged.push(pair.1);
-
-//                 merged
-//             })
-//             .collect()
-//     }
-// }
-
-// impl<T: Diff> EnvVecExt for T {}
