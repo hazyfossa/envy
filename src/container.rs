@@ -24,8 +24,9 @@ impl EnvBuf {
         Self(HashMap::new())
     }
 
-    pub fn from_values(values: impl IntoIterator<Item = Entry>) -> Self {
-        Self(HashMap::from_iter(values))
+    pub fn from_entries(values: impl IntoIterator<Item = Entry>) -> Self {
+        let entries = values.into_iter().map(Entry::to_tuple);
+        Self(HashMap::from_iter(entries))
     }
 
     pub fn as_hashmap(&self) -> HashMap<&String, &OsString> {
@@ -45,13 +46,17 @@ impl EnvContainer for EnvBuf {
 
 impl MutableEnvContainer for EnvBuf {
     fn raw_merge(&mut self, diff: impl Diff) {
-        self.0.extend(diff.to_env_diff());
+        let entries = diff.to_env_diff().into_iter().map(Entry::to_tuple);
+        self.0.extend(entries);
     }
 }
 
 impl Diff for EnvBuf {
     fn to_env_diff(self) -> impl IntoIterator<Item = Entry> {
-        self.0
+        self.0.into_iter().map(|(key, value)| match value {
+            Some(value) => Entry::Set { key, value },
+            None => Entry::Unset { key },
+        })
     }
 }
 
@@ -108,11 +113,10 @@ impl OsEnv {
     //
     // See `std::env::set_var` for why this is unsafe.
     pub unsafe fn merge_into_global(self) {
-        for (key, value) in self.to_env_diff() {
-            if let Some(value) = value {
-                unsafe {
-                    sys::set_var(key, value);
-                }
+        for entry in self.to_env_diff() {
+            match entry {
+                Entry::Set { key, value } => unsafe { sys::set_var(key, value) },
+                Entry::Unset { key } => unsafe { sys::remove_var(key) },
             }
         }
     }
@@ -140,10 +144,10 @@ impl Diff for OsEnv {
 
 impl MutableEnvContainer for std::process::Command {
     fn raw_merge(&mut self, diff: impl Diff) {
-        for (k, v) in diff.to_env_diff() {
-            match v {
-                Some(v) => self.env(k, v),
-                None => self.env_remove(k),
+        for entry in diff.to_env_diff() {
+            match entry {
+                Entry::Set { key, value } => self.env(key, value),
+                Entry::Unset { key } => self.env_remove(key),
             };
         }
     }

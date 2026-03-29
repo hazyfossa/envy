@@ -1,19 +1,38 @@
-use std::marker::PhantomData;
+use std::{ffi::OsString, marker::PhantomData};
 
 use crate::EnvVariable;
 
-pub use entry::Entry;
-pub mod entry {
-    use std::ffi::OsString;
+pub enum Entry {
+    Set { key: String, value: OsString },
+    Unset { key: String },
+}
 
-    pub type Entry = (String, Option<OsString>);
-
-    pub fn set(key: String, value: OsString) -> Entry {
-        (key, Some(value))
+impl Entry {
+    pub fn key(&self) -> &str {
+        match self {
+            Self::Set { key, .. } => key,
+            Self::Unset { key } => key,
+        }
     }
 
-    pub fn unset(key: String) -> Entry {
-        (key, None)
+    pub fn to_tuple(self) -> (String, Option<OsString>) {
+        match self {
+            Self::Set { key, value } => (key, Some(value)),
+            Self::Unset { key } => (key, None),
+        }
+    }
+
+    pub fn to_os_string(self) -> OsString {
+        match self {
+            Self::Set { key, value } => {
+                let mut s = OsString::new();
+                s.push(key);
+                s.push("=");
+                s.push(value);
+                s
+            }
+            Self::Unset { key } => key.into(),
+        }
     }
 }
 
@@ -23,7 +42,10 @@ pub trait Diff {
 
 impl<T: EnvVariable> Diff for T {
     fn to_env_diff(self) -> impl IntoIterator<Item = Entry> {
-        [entry::set(Self::KEY.to_string(), self.env_serialize())]
+        [Entry::Set {
+            key: Self::KEY.to_string(),
+            value: self.env_serialize(),
+        }]
     }
 }
 
@@ -44,20 +66,25 @@ pub fn unset<T>() -> Unset<T> {
 
 impl<T: EnvVariable> Diff for Unset<T> {
     fn to_env_diff(self) -> impl IntoIterator<Item = Entry> {
-        [entry::unset(T::KEY.to_string())]
+        [Entry::Unset {
+            key: T::KEY.to_string(),
+        }]
     }
 }
 
 // NOTE: this is for untyped variables
 // you would usually prefer typed ones instead
-impl Diff for &'static str {
+impl Diff for &str {
     fn to_env_diff(self) -> impl IntoIterator<Item = Entry> {
         let parts: Vec<&str> = self.split("=").collect();
         if parts.len() != 2 {
             panic!("Invalid environment update: {self}");
         }
 
-        [entry::set(parts[0].into(), parts[1].into())]
+        [Entry::Set {
+            key: parts[0].into(),
+            value: parts[1].into(),
+        }]
     }
 }
 
