@@ -24,9 +24,13 @@ impl EnvBuf {
         Self(HashMap::new())
     }
 
-    pub fn from_entries(values: impl IntoIterator<Item = Entry>) -> Self {
-        let entries = values.into_iter().map(Entry::to_tuple);
-        Self(HashMap::from_iter(entries))
+    pub fn from_entries(entries: impl IntoIterator<Item = Entry>) -> Self {
+        let tuples = entries.into_iter().map(Entry::to_tuple);
+        Self(HashMap::from_iter(tuples))
+    }
+
+    pub fn from_diff(diff: impl Diff) -> Self {
+        Self::from_entries(diff.to_env_diff())
     }
 
     pub fn as_hashmap(&self) -> HashMap<&String, &OsString> {
