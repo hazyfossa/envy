@@ -2,7 +2,7 @@
 
 // Raw interface
 
-use std::{collections::HashMap, env as sys, ffi::OsString};
+use std::{collections::HashMap, env as sys, ffi::OsString, vec};
 
 use crate::diff::{Diff, Entry};
 
@@ -33,6 +33,10 @@ impl EnvBuf {
         Self::from_entries(diff.to_env_diff())
     }
 
+    pub fn into_diff(self) -> EnvBufDiff {
+        EnvBufDiff { inner: self }
+    }
+
     pub fn as_hashmap(&self) -> HashMap<&String, &OsString> {
         self.0
             .iter()
@@ -55,12 +59,38 @@ impl MutableEnvContainer for EnvBuf {
     }
 }
 
-impl Diff for EnvBuf {
+impl<T: Diff> From<T> for EnvBuf {
+    fn from(value: T) -> Self {
+        Self::from_diff(value)
+    }
+}
+
+// This is required, since the `From` impl above restricts us
+// from implementing diff directly
+pub struct EnvBufDiff {
+    inner: EnvBuf,
+}
+
+impl Diff for EnvBufDiff {
     fn to_env_diff(self) -> impl IntoIterator<Item = Entry> {
-        self.0.into_iter().map(|(key, value)| match value {
+        self.inner.0.into_iter().map(|(key, value)| match value {
             Some(value) => Entry::Set { key, value },
             None => Entry::Unset { key },
         })
+    }
+}
+
+// This is sugar for buf.into_diff().to_env_diff()
+impl IntoIterator for EnvBufDiff {
+    // TODO: would a full `Map<...> declaration here be more performant?`
+    type IntoIter = vec::IntoIter<Self::Item>;
+    type Item = Entry;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.to_env_diff()
+            .into_iter()
+            .collect::<Vec<_>>()
+            .into_iter()
     }
 }
 
@@ -140,7 +170,7 @@ impl MutableEnvContainer for OsEnv {
 
 impl Diff for OsEnv {
     fn to_env_diff(self) -> impl IntoIterator<Item = Entry> {
-        self.append_buf.to_env_diff()
+        self.append_buf.into_diff()
     }
 }
 

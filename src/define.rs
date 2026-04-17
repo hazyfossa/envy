@@ -15,6 +15,12 @@ macro_rules! define_env {
             }
         }
 
+        impl Into<$repr> for $name {
+            fn into(self) -> $repr {
+                self.0
+            }
+        }
+
         impl std::ops::Deref for $name {
             type Target = $repr;
             fn deref(&self) -> &Self::Target {

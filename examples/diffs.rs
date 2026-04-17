@@ -56,8 +56,8 @@ fn containers() {
     // you can apply any diff to a buffer
     buf.set(Username("toor".to_string()));
 
-    // a buffer is itself a diff
-    let changes = buf.to_env_diff();
+    // you can destructure a buffer into a diff
+    let changes = buf.into_diff();
 
     // For convenience, OsEnv will allocate a local "view" buffer on first set
     // See function docs for more details
