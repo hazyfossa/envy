@@ -176,6 +176,24 @@ impl Diff for OsEnv {
 
 // command
 
+impl<'a> crate::diff::Diff for std::process::CommandEnvs<'a> {
+    fn to_env_diff(self) -> impl IntoIterator<Item = Entry> {
+        self.into_iter().filter_map(|(key, value)| {
+            // skip non-utf8 keys
+            let key = key.to_str()?.to_string();
+
+            Some(match value {
+                Some(set) => Entry::Set {
+                    key,
+                    value: set.into(),
+                },
+
+                None => Entry::Unset { key },
+            })
+        })
+    }
+}
+
 impl MutableEnvContainer for std::process::Command {
     fn raw_merge(&mut self, diff: impl Diff) {
         for entry in diff.to_env_diff() {
