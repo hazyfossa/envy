@@ -8,12 +8,11 @@ use std::ffi::OsString;
 
 use crate::{
     container::{EnvContainer, MutableEnvContainer},
-    diff::{Diff, unset},
     parse::EnvironmentParse,
 };
 
 pub use container::OsEnv;
-pub use diff::Unset;
+pub use diff::{Diff, Unset, unset};
 
 // TODO: zerocopy views
 
@@ -66,3 +65,6 @@ pub trait Set: MutableEnvContainer {
 
 impl<T> Get for T where T: EnvContainer {}
 impl<T> Set for T where T: MutableEnvContainer {}
+
+pub trait Env: Get + Diff {}
+impl<T> Env for T where T: Get + Diff {}
