@@ -194,13 +194,21 @@ impl<'a> crate::diff::Diff for std::process::CommandEnvs<'a> {
     }
 }
 
-impl MutableEnvContainer for std::process::Command {
-    fn raw_merge(&mut self, diff: impl Diff) {
-        for entry in diff.to_env_diff() {
-            match entry {
-                Entry::Set { key, value } => self.env(key, value),
-                Entry::Unset { key } => self.env_remove(key),
-            };
+macro_rules! command_env_impl {
+    ($for:path) => {
+        impl MutableEnvContainer for $for {
+            fn raw_merge(&mut self, diff: impl Diff) {
+                for entry in diff.to_env_diff() {
+                    match entry {
+                        Entry::Set { key, value } => self.env(key, value),
+                        Entry::Unset { key } => self.env_remove(key),
+                    };
+                }
+            }
         }
-    }
+    };
 }
+
+command_env_impl!(std::process::Command);
+#[cfg(feature = "tokio")]
+command_env_impl!(tokio::process::Command);
