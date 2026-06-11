@@ -1,9 +1,11 @@
-use std::ffi::OsString;
+use std::{error::Error, ffi::OsString};
 
-use snafu::{AsErrorSource, Snafu};
+use snafu::{ResultExt, Snafu};
+
+type ErasedError = Box<dyn Error + Send + Sync + 'static>;
 
 pub trait EnvironmentParse<Repr>: Sized {
-    type Error: snafu::Error + Send + Sync + 'static;
+    type Error: Into<ErasedError>;
 
     fn env_serialize(self) -> Repr;
     fn env_deserialize(raw: Repr) -> Result<Self, Self::Error>;
@@ -12,16 +14,16 @@ pub trait EnvironmentParse<Repr>: Sized {
 // NOTE: the display messages make sense when paired with crate::Error
 #[derive(Debug, Snafu)]
 
-pub enum StringParseError<E: AsErrorSource> {
+pub enum StringParseError {
     #[snafu(display("it contains non-UTF8 encoding"))]
     InvalidEncoding,
-    #[snafu(context(false))]
+
     #[snafu(display("the contents of it are invalid"))]
-    InvalidContent { source: E },
+    InvalidContent { source: ErasedError },
 }
 
 impl<T: EnvironmentParse<String>> EnvironmentParse<OsString> for T {
-    type Error = StringParseError<<Self as EnvironmentParse<String>>::Error>;
+    type Error = StringParseError;
 
     fn env_serialize(self) -> OsString {
         self.env_serialize().into()
@@ -32,6 +34,8 @@ impl<T: EnvironmentParse<String>> EnvironmentParse<OsString> for T {
             .into_string()
             .map_err(|_| StringParseError::InvalidEncoding)?;
 
-        Ok(Self::env_deserialize(value)?)
+        Ok(Self::env_deserialize(value)
+            .map_err(|e| e.into())
+            .context(InvalidContentSnafu)?)
     }
 }
