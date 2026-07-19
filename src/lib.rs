@@ -32,14 +32,23 @@ pub enum Error {
     NoneError { key: &'static str },
 }
 
-pub trait Get: EnvContainer {
-    fn get<T: EnvVariable>(&self) -> Result<T, Error> {
-        let raw = self.raw_get(T::KEY).context(NoneSnafu { key: T::KEY })?;
+// Ponder: alternatives to "maybe" api (custom result wrapper?)
 
-        // TODO: zerocopy
+pub trait Get: EnvContainer {
+    fn maybe_get<T: EnvVariable>(&self) -> Result<Option<T>, Error> {
+        let raw = match self.raw_get(T::KEY) {
+            Some(x) => x,
+            None => return Ok(None),
+        };
+
         T::env_deserialize(raw.clone())
             .map_err(|e| e.into())
             .context(ParseSnafu { key: T::KEY })
+            .map(Some)
+    }
+
+    fn get<T: EnvVariable>(&self) -> Result<T, Error> {
+        self.maybe_get()?.ok_or(Error::NoneError { key: T::KEY })
     }
 }
 
@@ -53,13 +62,22 @@ pub trait Set: MutableEnvContainer {
         self.raw_merge(e);
     }
 
+    fn maybe_pull<T: EnvVariable>(&mut self) -> Result<Option<T>, Error>
+    where
+        Self: Get,
+    {
+        let ret = self.maybe_get::<T>()?;
+        self.apply(unset::<T>());
+        Ok(ret)
+    }
+
     fn pull<T: EnvVariable>(&mut self) -> Result<T, Error>
     where
         Self: Get,
     {
-        let ret = self.get::<T>();
+        let ret = self.get::<T>()?;
         self.apply(unset::<T>());
-        ret
+        Ok(ret)
     }
 }
 

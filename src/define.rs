@@ -5,28 +5,11 @@ macro_rules! define_env {
         $(#[$($attributes:tt)*])?
         $vis:vis $name:ident ($repr:ty) = $(#$parse_modifier:tt)? $key:literal
     ) => {
-        $(#[$($attributes)*])?
-        #[derive(Debug, Clone)]
-        $vis struct $name($repr);
-
-        impl From<$repr> for $name {
-            fn from(value: $repr) -> Self {
-                Self(value)
-            }
-        }
-
-        impl Into<$repr> for $name {
-            fn into(self) -> $repr {
-                self.0
-            }
-        }
-
-        impl std::ops::Deref for $name {
-            type Target = $repr;
-            fn deref(&self) -> &Self::Target {
-                &self.0
-            }
-        }
+        ::hazymacros::newtype!(
+            $(#[$($attributes)*])?
+            #[derive(Debug, Clone)]
+            $vis $name = $repr
+        );
 
         $crate::define_env!(@parse $($parse_modifier)? $name($repr));
         $crate::define_env!(@define $name = $key);
